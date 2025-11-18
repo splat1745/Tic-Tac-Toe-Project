@@ -1,0 +1,23 @@
+# ignore backup and build artifacts
+*.o
+
+# ignore editor temporary files
+*.swp
+*.swo
+
+# project-specific ignores for this exercise
+# ignore the week-2 source file and executable (keep only week1 in repo)
+mainp2.c
+mainp1.c~
+# engine/test binaries
+tictactoe_week2.exe
+# accept both variants the user might type
+tictactoweek2
+
+# ignore report drafts (case insensitive variants)
+report.md
+REPORT.md
+report*.md
+
+# optional: ignore zipped project files
+*.zip
