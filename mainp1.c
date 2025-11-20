@@ -3,7 +3,7 @@
 // week 1: basic operation only
 // mohamad abou el nasr
 // college of engineering, university of guelph
-// november 8, 2025
+// november 12, 2025
 //
 // description: this program implements a basic tic-tac-toe game with two-player and
 // player-vs-ai (random) modes. week 1 focuses on core functionality including board
