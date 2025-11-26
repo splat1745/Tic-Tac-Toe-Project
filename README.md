@@ -1,236 +1,172 @@
-# Tic-Tac-Toe Game with Enhanced AI
+# TIC-TAC-TOE PART 2 - Advanced Implementation
 
-## ENGG1410: Introductory Programming for Engineers
-**Mini Project Part #1**
+## Overview
+This is the Part 2 implementation of the Tic-Tac-Toe project with advanced features including dynamic memory allocation (DMA), file I/O, and enhanced AI with difficulty levels.
 
-**Author:** Mohamad Abou El Nasr  
-**Institution:** College of Engineering, University of Guelph  
-**Date:** November 12, 2025
+## Files
+- **mainp2_part2.c** - Complete Part 2 implementation with all features
 
----
+## Features Implemented
 
-## Project Description
+### 1. Dynamic Board Allocation (Core Enhancement #1)
+- **createBoard(int size)** - Allocates a 2D dynamic array using char** (double pointer)
+- **freeBoard(char** board, int size)** - Properly deallocates all memory
+- Supports board sizes from 3×3 to 15×15
+- No memory leaks when freeing the board
 
-This is a C implementation of the classic Tic-Tac-Toe game with enhanced AI capabilities. The program supports:
-- Customizable grid sizes (3x3 to 10x10)
-- Two game modes: Player vs Player and Player vs AI
-- Strategic AI that can win and block opponent moves
-- Score tracking across multiple rounds
+**Key Concept:** The board is represented as `char**` (pointer to pointers), where each row is allocated separately:
+```c
+board = malloc(size * sizeof(char*));  // Array of row pointers
+for (i = 0; i < size; i++) {
+    board[i] = malloc(size * sizeof(char));  // Each row
+}
+```
 
----
+### 2. Game Statistics with Dynamic Structures (Core Enhancement #2)
+- **GameStats** typedef tracks:
+  - games_played
+  - wins_player1 (Player X)
+  - wins_player2 (Player O)
+  - draws
+  - **win_patterns** - Dynamic array that grows as needed using realloc
 
-## Features
+- **createGameStats()** - Allocates and initializes the statistics tracker
+- **updateStats()** - Updates stats and resizes win_patterns array dynamically
+- **freeGameStats()** - Safely deallocates all memory
+- **printStatistics()** - Displays game statistics
 
-### 1. Customizable Grid Size
-- Players can choose grid sizes from 3x3 up to 10x10
-- Larger grids provide more challenging gameplay
+**Key Concept:** The win_patterns array demonstrates dynamic resizing with realloc:
+```c
+if (stats->pattern_count >= stats->pattern_capacity) {
+    stats->pattern_capacity *= 2;  // Double capacity
+    new_patterns = realloc(stats->win_patterns, 
+                          stats->pattern_capacity * sizeof(int));
+}
+```
 
-### 2. Two Game Modes
-- **Player vs Player:** Two human players alternate turns
-- **Player vs AI:** Human player (X) competes against AI opponent (O)
+### 3. File I/O System (Core Enhancement #3)
+- **saveGame(char** board, int size, const GameStats* stats, const char* filename)**
+  - Saves board state and game statistics to a text file
+  - Format: board size, then each row, then statistics
 
-### 3. Enhanced AI Strategy
-The AI uses intelligent decision-making:
-1. **Win Check:** Takes winning move if available
-2. **Block Check:** Blocks opponent's winning move
-3. **Center Strategy:** Takes center position when possible
-4. **Corner Strategy:** Prioritizes corner positions
-5. **Random Move:** Falls back to valid random moves
+- **loadGame(char*** board, int* size, GameStats* stats, const char* filename)**
+  - Loads a previously saved game
+  - Note: Takes char*** because board is allocated inside the function
+  - Demonstrates pointer-to-pointer usage
 
-### 4. Score Tracking
-- Tracks wins for Player X and Player O
-- Counts draw games
-- Displays cumulative scores after each round
+- **saveStatistics(const GameStats* stats, const char* filename)**
+  - Saves only statistics in a human-readable format
 
-### 5. Win/Draw Detection
-- Checks rows, columns, and both diagonals for wins
-- Detects draw conditions when board is full
+**Usage in the game:**
+1. After a game ends, user is asked "Save game? (y/n)"
+2. Saves to "savegame.txt" and "statistics.txt"
+3. Main menu option allows loading previous games
 
----
+### 4. Enhanced AI with Difficulty Levels (Advanced Feature A)
+- **EASY** - Pure random move selection
+- **MEDIUM** - Rule-based heuristics (try to win, block opponent, center, corners)
+- **HARD** - Minimax algorithm with game tree evaluation
 
-## How to Compile
+#### Minimax Algorithm (HARD Mode)
+- **minimax(char** board, int size, char ai_char, char player_char, int depth, bool is_maximizing)**
+  - Recursive minimax evaluation
+  - Maximizing player (AI) tries to maximize score
+  - Minimizing player (human) tries to minimize score
+  - Returns best move (row, col) and its score
 
-Using GCC:
+- **evaluateBoard()** - Heuristic evaluation at depth limit to control computation time
+  - Counts potential winning lines for each player
+  - Prevents excessive recursion on large boards
+
+**Minimax Flow:**
+1. Check terminal states (win/loss/draw)
+2. If depth limit reached, use heuristic evaluation
+3. Try all possible moves
+4. Recursively evaluate resulting positions
+5. Choose move with best minimax score
+
+## Compilation
+
 ```bash
-gcc main.c -o tictactoe
+gcc -o mainp2_part2 mainp2_part2.c -std=c99 -Wall -Wextra
 ```
 
-Using Visual Studio (Developer Command Prompt):
+## Running the Program
+
 ```bash
-cl main.c
+./mainp2_part2.exe
 ```
 
----
+### Main Menu Options
+1. **New Game**
+   - Enter board size (3-15)
+   - Select game mode (PvP or PvAI)
+   - If PvAI, select difficulty (EASY/MEDIUM/HARD)
+   - Play the game
+   - Option to save after game ends
 
-## How to Run
+2. **Load Game**
+   - Loads the last saved game from "savegame.txt"
+   - Displays the board state
 
-After compilation:
-```bash
-./tictactoe
-```
+3. **View Statistics**
+   - Displays accumulated game statistics
+   - Games played, wins, draws, etc.
 
-Or on Windows:
-```bash
-tictactoe.exe
-```
+4. **Exit**
+   - Shows final statistics before quitting
 
----
+## Memory Management
 
-## How to Play
+All dynamic memory is properly allocated and freed:
+- ✅ No memory leaks
+- ✅ Dynamic board allocation with char**
+- ✅ Dynamic win_patterns array with realloc
+- ✅ Proper cleanup in all functions
+- ✅ Error handling for allocation failures
 
-1. **Select Grid Size:** Enter a number between 3 and 10
-2. **Choose Game Mode:**
-   - Enter `1` for Player vs Player
-   - Enter `2` for Player vs AI
-3. **Make Moves:**
-   - Enter row number (0 to size-1)
-   - Enter column number (0 to size-1)
-4. **Win Condition:** Form a complete line of your mark (horizontal, vertical, or diagonal)
-5. **Rematch:** After each game, choose to play again or exit
+## Game Loop Integration
 
----
+The Part 2 game loop:
+1. Creates dynamic board using createBoard()
+2. Initializes GameStats structure
+3. Plays game with chosen difficulty AI
+4. Updates statistics with updateStats()
+5. Optionally saves game and statistics
+6. Frees board and statistics before returning to menu
 
-## Program Structure
+## Key Improvements Over Part 1
 
-### Main Components
+| Feature | Part 1 | Part 2 |
+|---------|--------|--------|
+| Board Size | Fixed 10×10 | Dynamic 3-15×15 |
+| Memory | Static array | Dynamic allocation (char**) |
+| Statistics | Global counters | GameStats structure |
+| Persistence | None | Save/Load to files |
+| AI Difficulty | 1 level (MEDIUM) | 3 levels (EASY/MEDIUM/HARD) |
+| AI Algorithm | Heuristics | Minimax (HARD) |
 
-1. **initializeBoard()** - Sets up empty game board
-2. **printBoard()** - Displays current board state with grid
-3. **playerMove()** - Handles human player input with validation
-4. **aiMove()** - Implements AI strategy and decision-making
-5. **checkWin()** - Detects winning conditions
-6. **checkDraw()** - Detects draw conditions
-7. **updateScore()** - Tracks scores across rounds
-8. **canWin()** - Helper function to find winning/blocking moves
+## Educational Value
 
-### Global Variables
-- `playerXScore` - Tracks Player X wins
-- `playerOScore` - Tracks Player O wins
-- `draws` - Tracks draw games
+This implementation teaches:
+1. **Dynamic Memory Allocation** - malloc, free, realloc
+2. **Pointer Arithmetic** - char**, pointer-to-pointers
+3. **Data Structures** - typedef struct with dynamic arrays
+4. **File I/O** - fopen, fprintf, fscanf, fclose
+5. **Recursive Algorithms** - Minimax with game tree search
+6. **Software Engineering** - Separation of concerns, error handling
 
----
+## Notes
 
-## Input Validation
+- The depth limit in minimax (4) prevents excessive computation on larger boards
+- Random seed uses time(NULL) for variety
+- Input validation prevents out-of-bounds access
+- All file operations check for success and handle errors
 
-The program includes robust input validation:
-- Grid size must be between 3 and 10
-- Game mode must be 1 or 2
-- Row and column must be within valid range
-- Selected cell must be empty
+## Future Enhancements
 
----
-
-## Sample Gameplay
-
-```
-===================================
-  TIC-TAC-TOE GAME WITH AI
-===================================
-
-Enter grid size (3-10): 3
-
-Select game mode:
-1. Player vs Player
-2. Player vs AI
-Enter your choice (1 or 2): 2
-
---- Game Start! ---
-You are X, AI is O
-
-   0   1   2  
-  +---+---+---+
-0 |   |   |   |
-  +---+---+---+
-1 |   |   |   |
-  +---+---+---+
-2 |   |   |   |
-  +---+---+---+
-
-Player X's turn:
-Enter row (0-2): 1
-Enter column (0-2): 1
-
-AI (O) is thinking...
-AI plays at row 0, column 0 (Corner move!)
-...
-```
-
----
-
-## AI Strategy Details
-
-### Priority Order:
-1. **Winning Move:** If AI can win, it takes the winning position
-2. **Blocking Move:** If opponent can win next turn, AI blocks them
-3. **Center Control:** Takes center cell if available (odd grids)
-4. **Corner Control:** Prioritizes corner positions
-5. **Random Valid:** Makes random valid move as fallback
-
-This strategy ensures the AI is competitive while maintaining educational value.
-
----
-
-## Known Limitations
-
-- AI uses basic strategy suitable for educational purposes
-- For very large grids (9x9, 10x10), gameplay may be lengthy
-- No file save/load functionality in Part 1
-
----
-
-## Testing Recommendations
-
-1. Test 3x3 grid with both game modes
-2. Test larger grids (5x5, 7x7)
-3. Verify AI blocking strategy
-4. Verify AI winning strategy
-5. Test draw detection
-6. Test score tracking across multiple rounds
-7. Test input validation with invalid inputs
-
----
-
-## Future Enhancements (Part 2)
-
-Potential features for Part 2:
-- Advanced AI with minimax algorithm
-- Difficulty levels
-- Save/load game state
-- Undo/redo moves
-- Game replay functionality
-- Tournament mode
-
----
-
-## Compilation Notes
-
-**Required Compiler:** C compiler (GCC, MinGW, Visual Studio, etc.)  
-**C Standard:** C99 or later  
-**Libraries:** Standard library only (`stdio.h`, `stdlib.h`, `time.h`)
-
----
-
-## Troubleshooting
-
-**Issue:** AI always makes random moves  
-**Solution:** Ensure `srand(time(NULL))` is called only once in main()
-
-**Issue:** Board display is misaligned  
-**Solution:** Check terminal supports grid characters; adjust spacing in printBoard()
-
-**Issue:** Compilation warnings  
-**Solution:** Ensure using C99 standard or later (`-std=c99` flag)
-
----
-
-## Author Information
-
-**Course:** ENGG1410 - Introductory Programming for Engineers  
-**Instructor:** Mohamad Abou El Nasr  
-**Institution:** University of Guelph, College of Engineering
-
----
-
-## License
-
-This project is for educational purposes as part of ENGG1410 coursework.
+- Add alpha-beta pruning to minimax for faster evaluation
+- Implement game replay system (store move history)
+- Add difficulty settings for MEDIUM AI (more heuristics)
+- Persistent leaderboard across sessions
+- Graphical UI instead of console

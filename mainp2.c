@@ -82,7 +82,7 @@ int main() {
     printf("===================================\n\n");
     
     do {
-        // Prompt for the board/grid size. The program supports boards
+        // ask for the board/grid size. supports boards
         // between 3x3 and MAX_SIZE x MAX_SIZE. A user-entered size is
         // validated to prevent out-of-bounds memory access on the board
         // array.
@@ -94,7 +94,7 @@ int main() {
             }
         } while (size < 3 || size > MAX_SIZE);
         
-        // Let the player choose the game mode. Two modes:
+        // let the player choose the game mode. Two modes:
         // 1) Player vs Player: both players manually enter moves
         // 2) Player vs AI: a human player plays X, the program plays O
         // The loop prevents invalid choices. Separating the game mode
