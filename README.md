@@ -1,4 +1,4 @@
-# TIC-TAC-TOE PART 2 - Advanced Implementation
+# TIC-TAC-TOE - Advanced Implementation
 
 ## Overview
 This is the Part 2 implementation of the Tic-Tac-Toe project with advanced features including dynamic memory allocation (DMA), file I/O, and enhanced AI with difficulty levels.
