@@ -32,23 +32,22 @@ int playerXScore = 0;
 int playerOScore = 0;
 int draws = 0;
 
-// function prototypes
-// Function prototypes with explanatory notes
 // ------------------------------------------------------------------
-// Prototypes (forward declarations) are used so the order of the
-// functions in the file doesn't matter. Each function is described in
-// detail where it is implemented, but here's a quick map of what each
-// function does and why it exists:
+// prototypes (forward declarations) are used so the order of the
+// functions in the file doesn't matter. each function is described in
+// detail where it is implemented. This is how they work:
+//
 // - initializeBoard: fills the 2D array with spaces to mark empty cells.
-// - printBoard: prints a nicely formatted grid. Useful separation of
-//               concerns (display vs. game logic).
+// - printBoard: prints a nicely formatted grid. useful separation of
+//               concerns (display vs. gae logic).
 // - playerMove: prompts the user for a move and validates input.
 // - aiMove: simple rule-based AI (tries to win, blocks opponent, takes
 //           center/corners, otherwise random) — good teaching example
-// - canWin: checks if a player can win on the next move; used by AI.
+// - canWin: checks if a player can win on the next move. used by AI.
 // - isCellEmpty: helper to test whether a cell is unoccupied.
 // - checkWin/checkDraw: terminal checks used to determine game state.
 // - updateScore: increments the appropriate global score counter.
+
 void initializeBoard(char board[MAX_SIZE][MAX_SIZE], int size);
 void printBoard(char board[MAX_SIZE][MAX_SIZE], int size);
 void playerMove(char board[MAX_SIZE][MAX_SIZE], int size, char player);
@@ -68,17 +67,18 @@ int main() {
     int gameOver;
     char playAgain;
     
-    // Seed the random number generator used by the AI for fallback moves
+    // seed the random number generator used by the AI for fallback moves
     // ----------------------------------------------------------------
     // srand initializes the generator's state with a value that usually
     // changes (time(NULL)). Using a seed based on time ensures that the
     // sequence of random numbers (and therefore the AI's fallback moves)
     // is different each run. If reproducible play is required for testing
     // then this could be seeded with a fixed value instead.
+
     srand(time(NULL));
     
     printf("===================================\n");
-    printf("  TIC-TAC-TOE GAME WITH AI (somewhat anyway)\n");
+    printf("  TIC-TAC-TOE GAME WITH AI (finished)\n");
     printf("===================================\n\n");
     
     do {
