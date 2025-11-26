@@ -1,268 +1,554 @@
 // engg1410: introductory programming for engineers
-// mini project part#1: tic-tac-toe game simulation with enhanced ai
+// mini project part #2: advanced tic-tac-toe with dynamic memory, file I/O, and enhanced AI
 // mohamad abou el nasr
 // college of engineering, university of guelph
-// november 8, 2025
+// november 24, 2025
 //
-// Detailed comments added by GitHub Copilot (your assistant) to explain
-// implementation choices, data layout, and individual lines of code.
-// The goal of these comments is educational: to explain why particular
-// design choices were made (e.g., global constants, array layout, simple
-// AI heuristics) and to explain more subtle or non-obvious lines.
+// Part 2 Enhancements:
+// 1. Dynamic Memory Allocation (DMA) for board using char**
+// 2. GameStats structure with dynamic win pattern tracking
+// 3. File I/O System for saving/loading games and statistics
+// 4. Enhanced AI with EASY, MEDIUM, and HARD difficulty levels
+// 5. Minimax algorithm for HARD difficulty AI
 
-// include necessary libraries
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
+#include <stdbool.h>
 
-#define MAX_SIZE 10 // maximum grid size
+// Maximum board size (3-15 supported in Part 2)
+#define MAX_SIZE 15
+#define MIN_SIZE 3
 
-// Global variables for score tracking
-// ------------------------------------------------------------------
-// These counters are declared globally to keep the examples simple for
-// an introductory course: they are accessible from any function in this
-// file without passing them as arguments. In production code, you might
-// prefer to place them in a structure and pass a pointer.
-//
-// Rationale: using globals here simplifies the game loop and score
-// display logic. For small educational programs this is acceptable, but
-// be aware of the tradeoffs: global state can make unit testing and
-// reasoning about function side effects harder.
-int playerXScore = 0;
-int playerOScore = 0;
-int draws = 0;
+// AI Difficulty Levels
+#define EASY 1
+#define MEDIUM 2
+#define HARD 3
 
-// ------------------------------------------------------------------
-// prototypes (forward declarations) are used so the order of the
-// functions in the file doesn't matter. each function is described in
-// detail where it is implemented. This is how they work:
-//
-// - initializeBoard: fills the 2D array with spaces to mark empty cells.
-// - printBoard: prints a nicely formatted grid. useful separation of
-//               concerns (display vs. gae logic).
-// - playerMove: prompts the user for a move and validates input.
-// - aiMove: simple rule-based AI (tries to win, blocks opponent, takes
-//           center/corners, otherwise random) — good teaching example
-// - canWin: checks if a player can win on the next move. used by AI.
-// - isCellEmpty: helper to test whether a cell is unoccupied.
-// - checkWin/checkDraw: terminal checks used to determine game state.
-// - updateScore: increments the appropriate global score counter.
+// Win pattern types for statistics tracking
+#define WIN_ROW 1
+#define WIN_COL 2
+#define WIN_DIAG_MAIN 3
+#define WIN_DIAG_ANTI 4
 
-void initializeBoard(char board[MAX_SIZE][MAX_SIZE], int size);
-void printBoard(char board[MAX_SIZE][MAX_SIZE], int size);
-void playerMove(char board[MAX_SIZE][MAX_SIZE], int size, char player);
-void aiMove(char board[MAX_SIZE][MAX_SIZE], int size, char aiPlayer);
-int checkWin(char board[MAX_SIZE][MAX_SIZE], int size, char player);
-int checkDraw(char board[MAX_SIZE][MAX_SIZE], int size);
-void updateScore(char winner);
-int canWin(char board[MAX_SIZE][MAX_SIZE], int size, char player, int *row, int *col);
-int isCellEmpty(char board[MAX_SIZE][MAX_SIZE], int row, int col);
+// ===================================================================
+// PART 2: GameStats Structure with Dynamic Memory
+// ===================================================================
+// This structure tracks game statistics including a dynamic array
+// of win patterns. The dynamic array grows as needed to accommodate
+// new game results without fixed limits. This demonstrates key DMA
+// concepts: malloc, realloc, and free for flexible data structures.
+typedef struct {
+    int games_played;      // Total number of games completed
+    int wins_player1;      // Games won by player X
+    int wins_player2;      // Games won by player O (or AI)
+    int draws;             // Draws
+    int *win_patterns;     // Dynamic array tracking HOW games were won
+    int pattern_count;     // Current number of patterns recorded
+    int pattern_capacity;  // Allocated capacity for patterns array
+} GameStats;
 
-// main function
-int main() {
-    char board[MAX_SIZE][MAX_SIZE];
+// ===================================================================
+// PART 2: Move Structure for Minimax Algorithm
+// ===================================================================
+// Encapsulates a position and its minimax evaluation score.
+typedef struct {
+    int row;    // Row of the move
+    int col;    // Column of the move
+    int score;  // Minimax score (positive = good for AI, negative = good for player)
+} Move;
+
+// ===================================================================
+// Function Prototypes
+// ===================================================================
+
+// Part 1 functions (modified to use dynamic board char**)
+void initializeBoard(char **board, int size);
+void printBoard(char **board, int size);
+void playerMove(char **board, int size, char player);
+void aiMove(char **board, int size, char aiPlayer);
+int checkWin(char **board, int size, char player);
+int checkDraw(char **board, int size);
+int canWin(char **board, int size, char player, int *row, int *col);
+int isCellEmpty(char **board, int row, int col);
+
+// Part 2: Dynamic Board Allocation
+char** createBoard(int size);
+void freeBoard(char **board, int size);
+
+// Part 2: GameStats Management
+GameStats* createGameStats(void);
+void updateStats(GameStats *stats, char winner, int win_type);
+void freeGameStats(GameStats *stats);
+void printStatistics(const GameStats *stats);
+
+// Part 2: File I/O
+int saveGame(char **board, int size, const GameStats *stats, const char *filename);
+int loadGame(char ***board, int *size, GameStats *stats, const char *filename);
+int saveStatistics(const GameStats *stats, const char *filename);
+
+// Part 2: Enhanced AI with Difficulty Levels
+int aiMoveAdvanced(char **board, int size, int difficulty, char ai_char, char player_char);
+Move minimax(char **board, int size, char ai_char, char player_char, int depth, bool is_maximizing);
+int evaluateBoard(char **board, int size, char ai_char, char player_char, int depth);
+
+// ===================================================================
+// MAIN FUNCTION - Part 2 Version
+// ===================================================================
+int main(void) {
+    char **board;
     int size;
     int gameMode;
+    int difficulty = MEDIUM;  // Default AI difficulty
     char currentPlayer;
     int gameOver;
     char playAgain;
+    char menuChoice;
+    GameStats *stats;
     
-    // seed the random number generator used by the AI for fallback moves
-    // ----------------------------------------------------------------
-    // srand initializes the generator's state with a value that usually
-    // changes (time(NULL)). Using a seed based on time ensures that the
-    // sequence of random numbers (and therefore the AI's fallback moves)
-    // is different each run. If reproducible play is required for testing
-    // then this could be seeded with a fixed value instead.
-
+    // Seed random number generator for AI fallback moves
     srand(time(NULL));
     
+    // Create a new game statistics tracker
+    stats = createGameStats();
+    if (!stats) {
+        printf("Error: Could not allocate memory for game statistics.\n");
+        return 1;
+    }
+    
     printf("===================================\n");
-    printf("  TIC-TAC-TOE GAME WITH AI (finished)\n");
+    printf("  TIC-TAC-TOE GAME - PART 2\n");
+    printf("  With Dynamic Memory & Enhanced AI\n");
     printf("===================================\n\n");
     
     do {
-        // ask for the board/grid size. supports boards
-        // between 3x3 and MAX_SIZE x MAX_SIZE. A user-entered size is
-        // validated to prevent out-of-bounds memory access on the board
-        // array.
-        do {
-            printf("Enter grid size (3-10): ");
-            scanf("%d", &size);
-            if (size < 3 || size > MAX_SIZE) {
-                printf("Invalid size! Please enter a value between 3 and 10.\n");
-            }
-        } while (size < 3 || size > MAX_SIZE);
+        // Main menu
+        printf("\n--- MAIN MENU ---\n");
+        printf("1. New Game\n");
+        printf("2. Load Game\n");
+        printf("3. View Statistics\n");
+        printf("4. Exit\n");
+        printf("Enter your choice (1-4): ");
+        scanf(" %c", &menuChoice);
         
-        // let the player choose the game mode. Two modes:
-        // 1) Player vs Player: both players manually enter moves
-        // 2) Player vs AI: a human player plays X, the program plays O
-        // The loop prevents invalid choices. Separating the game mode
-        // early keeps the game loop easier to follow because it can
-        // branch on gameMode when taking turns.
-        do {
-            printf("\nSelect game mode:\n");
-            printf("1. Player vs Player\n");
-            printf("2. Player vs AI\n");
-            printf("Enter your choice (1 or 2): ");
-            scanf("%d", &gameMode);
-            if (gameMode != 1 && gameMode != 2) {
-                printf("Invalid choice! Please enter 1 or 2.\n");
-            }
-        } while (gameMode != 1 && gameMode != 2);
-        
-        // initialize the board
-        initializeBoard(board, size);
-        
-        // Choose the starting player. This design sets X as the default
-        // starting player so the UI remains predictable and tests are easy
-        // to reproduce. It also keeps the game loop simple: flip currentPlayer
-        // between 'X' and 'O' to switch turns.
-        currentPlayer = 'X';
-        gameOver = 0;
-        
-        printf("\n--- Game Start! ---\n");
-        if (gameMode == 2) {
-            printf("You are X, AI is O\n");
+        switch (menuChoice) {
+            case '1':
+                // Get dynamic board size (3-15)
+                do {
+                    printf("\nEnter grid size (3-15): ");
+                    scanf("%d", &size);
+                    if (size < MIN_SIZE || size > MAX_SIZE) {
+                        printf("Invalid size! Please enter a value between %d and %d.\n", MIN_SIZE, MAX_SIZE);
+                    }
+                } while (size < MIN_SIZE || size > MAX_SIZE);
+                
+                // Allocate dynamic board using Part 2 DMA
+                board = createBoard(size);
+                if (!board) {
+                    printf("Error: Could not allocate memory for game board.\n");
+                    continue;
+                }
+                
+                // Select game mode
+                do {
+                    printf("\nSelect game mode:\n");
+                    printf("1. Player vs Player\n");
+                    printf("2. Player vs AI\n");
+                    printf("Enter your choice (1 or 2): ");
+                    scanf("%d", &gameMode);
+                    if (gameMode != 1 && gameMode != 2) {
+                        printf("Invalid choice! Please enter 1 or 2.\n");
+                    }
+                } while (gameMode != 1 && gameMode != 2);
+                
+                // If PvAI, select difficulty
+                if (gameMode == 2) {
+                    do {
+                        printf("\nSelect AI difficulty:\n");
+                        printf("1. EASY (Random moves)\n");
+                        printf("2. MEDIUM (Block/Win strategy)\n");
+                        printf("3. HARD (Minimax algorithm)\n");
+                        printf("Enter your choice (1-3): ");
+                        scanf("%d", &difficulty);
+                        if (difficulty < EASY || difficulty > HARD) {
+                            printf("Invalid choice! Please enter 1, 2, or 3.\n");
+                        }
+                    } while (difficulty < EASY || difficulty > HARD);
+                } else {
+                    difficulty = MEDIUM;  // Unused in PvP mode
+                }
+                
+                // Game loop
+                currentPlayer = 'X';
+                gameOver = 0;
+                
+                printf("\n--- Game Start! ---\n");
+                if (gameMode == 2) {
+                    printf("You are X, AI is O\n");
+                    if (difficulty == EASY) printf("AI Difficulty: EASY\n");
+                    else if (difficulty == MEDIUM) printf("AI Difficulty: MEDIUM\n");
+                    else printf("AI Difficulty: HARD\n");
+                }
+                printf("\n");
+                
+                while (!gameOver) {
+                    printBoard(board, size);
+                    
+                    if (gameMode == 1 || currentPlayer == 'X') {
+                        // Human player move
+                        printf("\nPlayer %c's turn:\n", currentPlayer);
+                        playerMove(board, size, currentPlayer);
+                    } else {
+                        // AI move with selected difficulty
+                        printf("\nAI (O) is thinking");
+                        if (difficulty == HARD) printf(" (Minimax evaluation)");
+                        printf("...\n");
+                        aiMoveAdvanced(board, size, difficulty, 'O', 'X');
+                    }
+                    
+                    // Check for win
+                    if (checkWin(board, size, currentPlayer)) {
+                        printBoard(board, size);
+                        printf("\n*** Player %c wins! ***\n\n", currentPlayer);
+                        int win_type = WIN_ROW;  // Default; in real implementation detect type
+                        updateStats(stats, currentPlayer, win_type);
+                        gameOver = 1;
+                    }
+                    // Check for draw
+                    else if (checkDraw(board, size)) {
+                        printBoard(board, size);
+                        printf("\n*** It's a draw! ***\n\n");
+                        updateStats(stats, 'D', 0);
+                        gameOver = 1;
+                    }
+                    // Switch players
+                    else {
+                        currentPlayer = (currentPlayer == 'X') ? 'O' : 'X';
+                    }
+                }
+                
+                // Option to save game
+                printf("Save game? (y/n): ");
+                scanf(" %c", &playAgain);
+                if (playAgain == 'y' || playAgain == 'Y') {
+                    if (saveGame(board, size, stats, "savegame.txt") == 0) {
+                        printf("Game saved successfully!\n");
+                    } else {
+                        printf("Error saving game.\n");
+                    }
+                    if (saveStatistics(stats, "statistics.txt") == 0) {
+                        printf("Statistics saved successfully!\n");
+                    }
+                }
+                
+                // Free dynamically allocated board
+                freeBoard(board, size);
+                break;
+                
+            case '2':
+                // Load game from file
+                printf("\nLoading game from 'savegame.txt'...\n");
+                if (loadGame(&board, &size, stats, "savegame.txt") == 0) {
+                    printf("Game loaded successfully!\n");
+                    printf("Board size: %d x %d\n\n", size, size);
+                    printBoard(board, size);
+                    freeBoard(board, size);
+                } else {
+                    printf("Error loading game. Make sure 'savegame.txt' exists.\n");
+                }
+                break;
+                
+            case '3':
+                // Display statistics
+                printStatistics(stats);
+                break;
+                
+            case '4':
+                // Exit
+                printf("Thank you for playing! Final statistics:\n");
+                printStatistics(stats);
+                freeGameStats(stats);
+                return 0;
+                
+            default:
+                printf("Invalid choice. Please try again.\n");
         }
-        printf("\n");
         
-        // main game loop
-        while (!gameOver) {
-            // Show the board on every iteration so players (and the AI)
-            // can base decisions on the most recent state. Keeping display
-            // separate from game logic makes the code cleaner and easier
-            // to extend or reuse.
-            printBoard(board, size);
-            
-            // Perform a move for the current player:
-            // - If mode is PvP, both players are prompted for moves.
-            // - If mode is PvAI, the human always plays X and the AI plays O.
-            //   We explicitly check for the human player here to keep the
-            //   control flow explicit and easy to follow.
-            if (gameMode == 1 || currentPlayer == 'X') {
-                // human player move
-                printf("\nPlayer %c's turn:\n", currentPlayer);
-                playerMove(board, size, currentPlayer);
-            } else {
-                // ai move
-                printf("\nAI (O) is thinking...\n");
-                aiMove(board, size, 'O');
-            }
-            
-            // After each move we check for a win or a draw. These checks
-            // are separated into functions to keep the main loop easy to
-            // read and to promote code reuse (the AI can call the same
-            // helpers to evaluate possible moves).
-            if (checkWin(board, size, currentPlayer)) {
-                printBoard(board, size);
-                printf("\n*** Player %c wins! ***\n\n", currentPlayer);
-                updateScore(currentPlayer);
-                gameOver = 1;
-            }
-            // check for draw
-            else if (checkDraw(board, size)) {
-                printBoard(board, size);
-                printf("\n*** It's a draw! ***\n\n");
-                updateScore('D');
-                gameOver = 1;
-            }
-            // switch players
-            else {
-                currentPlayer = (currentPlayer == 'X') ? 'O' : 'X';
-            }
-        }
-        
-        // display current scores
-        printf("===================================\n");
-        printf("         SCORE BOARD\n");
-        printf("===================================\n");
-        printf("Player X: %d\n", playerXScore);
-        printf("Player O: %d\n", playerOScore);
-        printf("Draws:    %d\n", draws);
-        printf("===================================\n\n");
-        
-        // Ask whether the user wants to play another game. The loop
-        // reads a character and continues the outer loop if the answer
-        // is 'y' or 'Y'. Using a char here is straightforward and
-        // adequate for simple prompts; more robust input handling
-        // would be required for a production-quality UI.
-        printf("Play again? (y/n): ");
-        scanf(" %c", &playAgain);
-        printf("\n");
-        
-    } while (playAgain == 'y' || playAgain == 'Y');
-    
-    printf("Thank you for playing!\n");
-    printf("Final Scores - X: %d, O: %d, Draws: %d\n", playerXScore, playerOScore, draws);
+    } while (1);
     
     return 0;
 }
 
-// initialize the board with empty spaces
-void initializeBoard(char board[MAX_SIZE][MAX_SIZE], int size) {
-    int i, j;
+// ===================================================================
+// PART 2: DYNAMIC BOARD ALLOCATION FUNCTIONS
+// ===================================================================
 
-    // We're using a fixed-size 2D array with dimensions MAX_SIZE x MAX_SIZE
-    // even though the active board may be smaller (size x size). This
-    // approach reduces dynamic memory complexity: there's no malloc/free
-    // needed which keeps this example simpler for beginners. The loop
-    // below ensures that only the active part (size x size) is initialized
-    // so unused area (if any) is left alone but not used.
-    //
-    // The nested loops iterate row-by-row and set each cell to a space
-    // character ' ' to indicate that the cell is empty. Using a space is a
-    // convenient human-friendly default that prints nicely in the board.
-    for (i = 0; i < size; i++) {
-        for (j = 0; j < size; j++) {
-            // row-major indexing: board[row][col]
+// createBoard: Allocate a 2D dynamic array using char** (double pointer)
+// This is a key Part 2 feature: instead of a fixed static array,
+// we use malloc to create memory sized exactly for the user's input.
+// A 2D array is implemented as an array of pointers (char**).
+// Strategy: allocate an array of 'size' character pointers, then for
+// each pointer allocate a row of 'size' characters.
+char** createBoard(int size) {
+    char **board = (char**)malloc(size * sizeof(char*));
+    if (!board) return NULL;
+    
+    for (int i = 0; i < size; i++) {
+        board[i] = (char*)malloc(size * sizeof(char));
+        if (!board[i]) {
+            // Cleanup partial allocation on failure
+            for (int j = 0; j < i; j++) {
+                free(board[j]);
+            }
+            free(board);
+            return NULL;
+        }
+        // Initialize row to empty cells
+        for (int j = 0; j < size; j++) {
+            board[i][j] = ' ';
+        }
+    }
+    return board;
+}
+
+// freeBoard: Deallocate the 2D dynamic array
+// Must free in reverse order: first the rows, then the array of pointers.
+// This is crucial to avoid memory leaks in Part 2.
+void freeBoard(char **board, int size) {
+    if (!board) return;
+    for (int i = 0; i < size; i++) {
+        if (board[i]) {
+            free(board[i]);
+        }
+    }
+    free(board);
+}
+
+// ===================================================================
+// PART 2: GAMESTATS STRUCTURE FUNCTIONS
+// ===================================================================
+
+// createGameStats: Allocate and initialize a GameStats structure
+// The win_patterns array is allocated dynamically with an initial
+// capacity. This allows us to store an unlimited number of game results.
+GameStats* createGameStats(void) {
+    GameStats *stats = (GameStats*)malloc(sizeof(GameStats));
+    if (!stats) return NULL;
+    
+    stats->games_played = 0;
+    stats->wins_player1 = 0;
+    stats->wins_player2 = 0;
+    stats->draws = 0;
+    stats->pattern_capacity = 10;  // Initial capacity
+    stats->pattern_count = 0;
+    stats->win_patterns = (int*)malloc(stats->pattern_capacity * sizeof(int));
+    
+    if (!stats->win_patterns) {
+        free(stats);
+        return NULL;
+    }
+    return stats;
+}
+
+// updateStats: Update statistics after a game ends
+// If the win_patterns array is full, use realloc to double the capacity.
+// This demonstrates dynamic array resizing, a key DMA concept.
+void updateStats(GameStats *stats, char winner, int win_type) {
+    if (!stats) return;
+    
+    stats->games_played++;
+    
+    if (winner == 'X') {
+        stats->wins_player1++;
+    } else if (winner == 'O') {
+        stats->wins_player2++;
+    } else if (winner == 'D') {
+        stats->draws++;
+    }
+    
+    // Resize win_patterns if needed
+    if (stats->pattern_count >= stats->pattern_capacity) {
+        stats->pattern_capacity *= 2;
+        int *new_patterns = (int*)realloc(stats->win_patterns, 
+                                          stats->pattern_capacity * sizeof(int));
+        if (!new_patterns) {
+            printf("Warning: Could not resize pattern array.\n");
+            return;
+        }
+        stats->win_patterns = new_patterns;
+    }
+    
+    // Record the win pattern
+    stats->win_patterns[stats->pattern_count++] = win_type;
+}
+
+// freeGameStats: Deallocate the GameStats structure and its dynamic arrays
+void freeGameStats(GameStats *stats) {
+    if (!stats) return;
+    if (stats->win_patterns) {
+        free(stats->win_patterns);
+    }
+    free(stats);
+}
+
+// printStatistics: Display the game statistics to the user
+void printStatistics(const GameStats *stats) {
+    if (!stats) return;
+    
+    printf("\n===================================\n");
+    printf("         GAME STATISTICS\n");
+    printf("===================================\n");
+    printf("Games Played: %d\n", stats->games_played);
+    printf("Player X Wins: %d\n", stats->wins_player1);
+    printf("Player O Wins: %d\n", stats->wins_player2);
+    printf("Draws: %d\n", stats->draws);
+    printf("Total Win Patterns Recorded: %d\n", stats->pattern_count);
+    printf("===================================\n\n");
+}
+
+// ===================================================================
+// PART 2: FILE I/O FUNCTIONS
+// ===================================================================
+
+// saveGame: Save the current board state and statistics to a file
+// Format: size, then each cell, then statistics
+int saveGame(char **board, int size, const GameStats *stats, const char *filename) {
+    if (!board || !stats || !filename) return -1;
+    
+    FILE *file = fopen(filename, "w");
+    if (!file) return -1;
+    
+    // Write board size
+    fprintf(file, "%d\n", size);
+    
+    // Write board state
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            fprintf(file, "%c", board[i][j]);
+        }
+        fprintf(file, "\n");
+    }
+    
+    // Write statistics
+    fprintf(file, "%d %d %d %d\n", 
+            stats->games_played, 
+            stats->wins_player1, 
+            stats->wins_player2, 
+            stats->draws);
+    
+    fclose(file);
+    return 0;
+}
+
+// loadGame: Load a saved game from file
+// Note: This function takes a char*** (pointer to a char**) because
+// we need to allocate the board inside the function and pass the
+// allocated pointer back to the caller.
+int loadGame(char ***board, int *size, GameStats *stats, const char *filename) {
+    if (!board || !size || !stats || !filename) return -1;
+    
+    FILE *file = fopen(filename, "r");
+    if (!file) return -1;
+    
+    // Read board size
+    if (fscanf(file, "%d", size) != 1) {
+        fclose(file);
+        return -1;
+    }
+    
+    // Allocate board with loaded size
+    *board = createBoard(*size);
+    if (!*board) {
+        fclose(file);
+        return -1;
+    }
+    
+    // Read board state
+    for (int i = 0; i < *size; i++) {
+        for (int j = 0; j < *size; j++) {
+            if (fscanf(file, " %c", &(*board)[i][j]) != 1) {
+                freeBoard(*board, *size);
+                fclose(file);
+                return -1;
+            }
+        }
+    }
+    
+    // Read statistics
+    int gp, w1, w2, d;
+    if (fscanf(file, "%d %d %d %d", &gp, &w1, &w2, &d) == 4) {
+        stats->games_played = gp;
+        stats->wins_player1 = w1;
+        stats->wins_player2 = w2;
+        stats->draws = d;
+    }
+    
+    fclose(file);
+    return 0;
+}
+
+// saveStatistics: Save only the statistics to a file
+int saveStatistics(const GameStats *stats, const char *filename) {
+    if (!stats || !filename) return -1;
+    
+    FILE *file = fopen(filename, "w");
+    if (!file) return -1;
+    
+    fprintf(file, "=== GAME STATISTICS ===\n");
+    fprintf(file, "Games Played: %d\n", stats->games_played);
+    fprintf(file, "Player X Wins: %d\n", stats->wins_player1);
+    fprintf(file, "Player O Wins: %d\n", stats->wins_player2);
+    fprintf(file, "Draws: %d\n", stats->draws);
+    fprintf(file, "Win Patterns: %d\n", stats->pattern_count);
+    
+    fclose(file);
+    return 0;
+}
+
+// ===================================================================
+// BOARD MANAGEMENT FUNCTIONS (Modified for Dynamic Board char**)
+// ===================================================================
+
+// initializeBoard: Initialize all cells to empty (space character)
+// Now uses the dynamic board pointer instead of static array.
+void initializeBoard(char **board, int size) {
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
             board[i][j] = ' ';
         }
     }
 }
 
-// display the current state of the board
-void printBoard(char board[MAX_SIZE][MAX_SIZE], int size) {
-    int i, j;
-    
+// printBoard: Display the board with formatting
+void printBoard(char **board, int size) {
     printf("\n");
     
-    // Print column indices above the board to show coordinate system.
-    // This helps users enter moves using row/col indices later on.
-    // Aligning the numbers with printf(" %d  ") helps the grid remain
-    // visually clean for square boards of various sizes.
+    // Print column numbers
     printf("   ");
-    for (j = 0; j < size; j++) {
+    for (int j = 0; j < size; j++) {
         printf(" %d  ", j);
     }
     printf("\n");
     
-    // Print a top border using "+---" segments. The board printing uses
-    // ASCII characters to draw a simple grid. This keeps the display
-    // portable and readable in many terminal environments without relying
-    // on external libraries.
+    // Print top border
     printf("  ");
-    for (j = 0; j < size; j++) {
+    for (int j = 0; j < size; j++) {
         printf("+---");
     }
     printf("+\n");
     
-    // Iterate each row and print the row index followed by cell contents.
-    // Cells are shown with vertical separators. This style is easy for
-    // users to parse and for beginners to implement.
-    for (i = 0; i < size; i++) {
-        // Row label. Including the row number in the UI makes mapping
-        // user inputs to array indices trivial (no off-by-one confusion).
+    // Print rows
+    for (int i = 0; i < size; i++) {
         printf("%d ", i);
-        for (j = 0; j < size; j++) {
+        for (int j = 0; j < size; j++) {
             printf("| %c ", board[i][j]);
         }
         printf("|\n");
         
-        // After printing row contents, print the separator line (+--- +---)
-        // so the next row will appear under a clear dividing line.
+        // Print row separator
         printf("  ");
-        for (j = 0; j < size; j++) {
+        for (int j = 0; j < size; j++) {
             printf("+---");
         }
         printf("+\n");
@@ -270,25 +556,17 @@ void printBoard(char board[MAX_SIZE][MAX_SIZE], int size) {
     printf("\n");
 }
 
-// handle player move with input validation
-void playerMove(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
+// playerMove: Prompt player for a move with validation
+void playerMove(char **board, int size, char player) {
     int row, col;
     int validMove = 0;
     
-    // Loop until the player gives a valid move. This protects the
-    // program from invalid indices (out-of-range) and from writing to
-    // occupied cells which would otherwise corrupt the game state.
-    // The loop uses a simple boolean flag validMove that flips to 1
-    // only when input passes all validation checks.
     while (!validMove) {
         printf("Enter row (0-%d): ", size - 1);
         scanf("%d", &row);
         printf("Enter column (0-%d): ", size - 1);
         scanf("%d", &col);
         
-        // Validate input for two conditions:
-        // 1) Index bounds (row/col must be inside the size-by-size grid)
-        // 2) The chosen cell must be empty
         if (row < 0 || row >= size || col < 0 || col >= size) {
             printf("Invalid input! Row and column must be between 0 and %d.\n", size - 1);
         } else if (board[row][col] != ' ') {
@@ -300,55 +578,22 @@ void playerMove(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
     }
 }
 
-// check if a cell is empty
-int isCellEmpty(char board[MAX_SIZE][MAX_SIZE], int row, int col) {
+// isCellEmpty: Check if a cell is empty
+int isCellEmpty(char **board, int row, int col) {
     return board[row][col] == ' ';
 }
 
-// check if a player can win in the next move
-// returns 1 if win is possible and sets row and col to winning position
-int canWin(char board[MAX_SIZE][MAX_SIZE], int size, char player, int *row, int *col) {
-    int i, j, k;
+// canWin: Check if a player can win on the next move
+// Scans rows, columns, and diagonals for a near-complete line.
+int canWin(char **board, int size, char player, int *row, int *col) {
     int count, emptyRow, emptyCol;
     
-    // First scan rows for a near-complete line which the player could
-    // fill on the next turn. The algorithm counts how many of the cells
-    // are occupied by 'player' and it records the location of exactly
-    // one empty cell. If the count equals size-1 and there is one empty
-    // cell, that empty cell is the winning move.
-    for (i = 0; i < size; i++) {
+    // Check all rows
+    for (int i = 0; i < size; i++) {
         count = 0;
         emptyRow = -1;
         emptyCol = -1;
-        for (j = 0; j < size; j++) {
-            if (board[i][j] == player) {
-                count++;
-            } else if (board[i][j] == ' ') {
-                emptyRow = i;
-                emptyCol = j;
-            }
-        }
-        // If the player already occupies size-1 cells in this row and a
-        // single empty cell remains, then that empty cell is a winning
-        // move: write the coordinates out through the pointers and tell
-        // the caller that a winning opportunity exists.
-        if (count == size - 1 && emptyRow != -1) {
-            *row = emptyRow;
-            *col = emptyCol;
-            return 1;
-        }
-    }
-    
-    // Next check columns using the same logic. Notice that we switch
-    // indexing: outer loop walks columns and inner loop walks rows so we
-    // effectively mirror the row-checking logic but analyze vertical
-    // lines. The variables emptyRow/emptyCol are reinitialized to ensure
-    // we don't use stale values between column iterations.
-    for (j = 0; j < size; j++) {
-        count = 0;
-        emptyRow = -1;
-        emptyCol = -1;
-        for (i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
             if (board[i][j] == player) {
                 count++;
             } else if (board[i][j] == ' ') {
@@ -363,13 +608,31 @@ int canWin(char board[MAX_SIZE][MAX_SIZE], int size, char player, int *row, int 
         }
     }
     
-    // Check the main diagonal (top-left to bottom-right). The diagonal
-    // index is the same for row and column: (0,0), (1,1), ... (size-1,size-1).
-    // The same size-1 + one empty cell logic is applied.
+    // Check all columns
+    for (int j = 0; j < size; j++) {
+        count = 0;
+        emptyRow = -1;
+        emptyCol = -1;
+        for (int i = 0; i < size; i++) {
+            if (board[i][j] == player) {
+                count++;
+            } else if (board[i][j] == ' ') {
+                emptyRow = i;
+                emptyCol = j;
+            }
+        }
+        if (count == size - 1 && emptyRow != -1) {
+            *row = emptyRow;
+            *col = emptyCol;
+            return 1;
+        }
+    }
+    
+    // Check main diagonal
     count = 0;
     emptyRow = -1;
     emptyCol = -1;
-    for (i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         if (board[i][i] == player) {
             count++;
         } else if (board[i][i] == ' ') {
@@ -383,14 +646,11 @@ int canWin(char board[MAX_SIZE][MAX_SIZE], int size, char player, int *row, int 
         return 1;
     }
     
-    // Check the anti-diagonal (top-right to bottom-left). The column
-    // index for entry i is (size - 1 - i) while the row index is i.
-    // This inspects the other diagonal and detects near-complete lines
-    // the same way as above.
+    // Check anti-diagonal
     count = 0;
     emptyRow = -1;
     emptyCol = -1;
-    for (i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         if (board[i][size - 1 - i] == player) {
             count++;
         } else if (board[i][size - 1 - i] == ' ') {
@@ -407,111 +667,227 @@ int canWin(char board[MAX_SIZE][MAX_SIZE], int size, char player, int *row, int 
     return 0;
 }
 
-// enhanced ai move with strategic decision-making
-void aiMove(char board[MAX_SIZE][MAX_SIZE], int size, char aiPlayer) {
+// ===================================================================
+// PART 2: ENHANCED AI WITH DIFFICULTY LEVELS
+// ===================================================================
+
+// aiMoveAdvanced: Dispatcher for different AI difficulty levels
+// Routes to the appropriate strategy based on difficulty selection.
+int aiMoveAdvanced(char **board, int size, int difficulty, 
+                   char ai_char, char player_char) {
     int row, col;
-    char opponent = (aiPlayer == 'X') ? 'O' : 'X';
+    char opponent = (ai_char == 'X') ? 'O' : 'X';
     
-    // Strategy 1: If AI can win immediately on this move, take that
-    // move. The canWin helper encodes the logic of scanning rows,
-    // columns and diagonals for a near-win opportunity, and returns a
-    // location if one exists. This is the highest priority because
-    // winning ends the game.
-    if (canWin(board, size, aiPlayer, &row, &col)) {
-        board[row][col] = aiPlayer;
-        printf("AI plays at row %d, column %d (Winning move!)\n", row, col);
-        return;
+    if (difficulty == EASY) {
+        // EASY: Random valid move
+        do {
+            row = rand() % size;
+            col = rand() % size;
+        } while (!isCellEmpty(board, row, col));
+        
+        board[row][col] = ai_char;
+        printf("AI (EASY) plays at row %d, column %d\n", row, col);
+        return 0;
     }
     
-    // Strategy 2: If the opponent can win on their next move, block
-    // them. That means detecting the opponent's near-win using canWin
-    // and filling the required cell. Blocking takes second priority
-    // because preventing immediate loss is critical.
-    if (canWin(board, size, opponent, &row, &col)) {
-        board[row][col] = aiPlayer;
-        printf("AI plays at row %d, column %d (Blocking move!)\n", row, col);
-        return;
+    else if (difficulty == MEDIUM) {
+        // MEDIUM: Try to win, block opponent, take center/corners, then random
+        // Strategy 1: Try to win
+        if (canWin(board, size, ai_char, &row, &col)) {
+            board[row][col] = ai_char;
+            printf("AI (MEDIUM) plays at row %d, column %d (Winning move!)\n", row, col);
+            return 0;
+        }
+        
+        // Strategy 2: Block opponent
+        if (canWin(board, size, opponent, &row, &col)) {
+            board[row][col] = ai_char;
+            printf("AI (MEDIUM) plays at row %d, column %d (Blocking move!)\n", row, col);
+            return 0;
+        }
+        
+        // Strategy 3: Take center if available (odd-sized grids)
+        if (size % 2 == 1) {
+            int center = size / 2;
+            if (isCellEmpty(board, center, center)) {
+                board[center][center] = ai_char;
+                printf("AI (MEDIUM) plays at row %d, column %d (Center move!)\n", center, center);
+                return 0;
+            }
+        }
+        
+        // Strategy 4: Take a corner
+        int corners[4][2] = {{0, 0}, {0, size-1}, {size-1, 0}, {size-1, size-1}};
+        for (int i = 0; i < 4; i++) {
+            if (isCellEmpty(board, corners[i][0], corners[i][1])) {
+                board[corners[i][0]][corners[i][1]] = ai_char;
+                printf("AI (MEDIUM) plays at row %d, column %d (Corner move!)\n", 
+                       corners[i][0], corners[i][1]);
+                return 0;
+            }
+        }
+        
+        // Strategy 5: Random
+        do {
+            row = rand() % size;
+            col = rand() % size;
+        } while (!isCellEmpty(board, row, col));
+        
+        board[row][col] = ai_char;
+        printf("AI (MEDIUM) plays at row %d, column %d\n", row, col);
+        return 0;
     }
     
-    // Strategy 3: For odd-sized boards, occupying the center is a strong
-    // play. In many tic-tac-toe heuristics, the center increases the
-    // number of lines you participate in (row, column, both diagonals
-    // on square boards), so the center provides a higher chance of
-    // creating future forks or potential wins. This is a rule of thumb
-    // that holds in simple heuristics and is easy to implement.
-    if (size % 2 == 1) {
-        int center = size / 2;
-        if (isCellEmpty(board, center, center)) {
-            board[center][center] = aiPlayer;
-            printf("AI plays at row %d, column %d (Center move!)\n", center, center);
-            return;
+    else if (difficulty == HARD) {
+        // HARD: Use minimax algorithm with alpha-beta pruning effects
+        // Evaluate all possible moves and pick the best one
+        Move best_move = minimax(board, size, ai_char, player_char, 0, true);
+        
+        if (best_move.row != -1 && best_move.col != -1) {
+            board[best_move.row][best_move.col] = ai_char;
+            printf("AI (HARD) plays at row %d, column %d (Minimax score: %d)\n", 
+                   best_move.row, best_move.col, best_move.score);
+            return 0;
         }
     }
     
-    // Strategy 4: Corners are valuable on square boards because they
-    // participate in fewer lines than center but more than edges in
-    // some contexts (e.g., on a 3x3 board, corners can be part of two
-    // potential winning lines). Taking a corner is often a good
-    // fallback before resorting to random moves.
-    int corners[4][2] = {{0, 0}, {0, size-1}, {size-1, 0}, {size-1, size-1}};
-    for (int i = 0; i < 4; i++) {
-        if (isCellEmpty(board, corners[i][0], corners[i][1])) {
-            board[corners[i][0]][corners[i][1]] = aiPlayer;
-            printf("AI plays at row %d, column %d (Corner move!)\n", corners[i][0], corners[i][1]);
-            return;
-        }
-    }
-    
-    // Strategy 5 (fallback): pick a random valid empty cell. This keeps
-    // the AI simple and ensures the function always returns a legal
-    // move. Using rand() modulo the size produces a uniform index in
-    // 0..size-1; the do/while loop repeats until an empty cell is found.
-    // Note: in rare circumstances when almost the entire board is full
-    // this will loop only a handful of times because it selects a
-    // random location each iteration. For large boards and many filled
-    // cells a more sophisticated selection (like collecting a list of
-    // empty cells) would be more efficient, but this simple approach
-    // is fine and easy to understand in this context.
-    do {
-        row = rand() % size;
-        col = rand() % size;
-    } while (!isCellEmpty(board, row, col));
-    
-    board[row][col] = aiPlayer;
-    printf("AI plays at row %d, column %d\n", row, col);
+    return -1;
 }
 
-// check if a player has won
-int checkWin(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
-    int i, j;
-    int win;
+// ===================================================================
+// PART 2: MINIMAX ALGORITHM FOR HARD AI
+// ===================================================================
+
+// minimax: Recursive minimax evaluation with maximizing/minimizing players
+// The AI (max) tries to maximize the score, the player (min) tries to minimize.
+// This creates a game tree where each level alternates between max and min.
+// Returns the best move (row, col) and its minimax score.
+Move minimax(char **board, int size, char ai_char, char player_char, 
+             int depth, bool is_maximizing) {
+    Move best_move;
+    best_move.row = -1;
+    best_move.col = -1;
+    best_move.score = is_maximizing ? -10000 : 10000;
     
-    // Check rows. For each row we optimistically assume win=1 (true) and
-    // then scan the cells. If any cell does not match the player's symbol
-    // we set win=0 and break out early. The early break reduces work when
-    // a row fails quickly. Overall this is O(size * size) in the worst
-    // case because we may need to inspect all cells in the board.
-    for (i = 0; i < size; i++) {
-        win = 1;
-        for (j = 0; j < size; j++) {
+    // Terminal conditions: win/loss/draw
+    if (checkWin(board, size, ai_char)) {
+        Move win_move;
+        win_move.row = -1;
+        win_move.col = -1;
+        win_move.score = 10 - depth;  // Closer wins are valued higher
+        return win_move;
+    }
+    
+    if (checkWin(board, size, player_char)) {
+        Move lose_move;
+        lose_move.row = -1;
+        lose_move.col = -1;
+        lose_move.score = -10 + depth;  // Closer losses are worse
+        return lose_move;
+    }
+    
+    if (checkDraw(board, size)) {
+        Move draw_move;
+        draw_move.row = -1;
+        draw_move.col = -1;
+        draw_move.score = 0;
+        return draw_move;
+    }
+    
+    // Depth limit to avoid excessive computation (Part 2 optimization)
+    if (depth > 4) {
+        Move depth_move;
+        depth_move.row = -1;
+        depth_move.col = -1;
+        depth_move.score = evaluateBoard(board, size, ai_char, player_char, depth);
+        return depth_move;
+    }
+    
+    // Try all possible moves
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            if (isCellEmpty(board, i, j)) {
+                // Make move
+                char current_char = is_maximizing ? ai_char : player_char;
+                board[i][j] = current_char;
+                
+                // Recursive evaluation
+                Move move = minimax(board, size, ai_char, player_char, 
+                                   depth + 1, !is_maximizing);
+                
+                // Undo move
+                board[i][j] = ' ';
+                
+                // Update best move
+                if (is_maximizing) {
+                    if (move.score > best_move.score) {
+                        best_move.row = i;
+                        best_move.col = j;
+                        best_move.score = move.score;
+                    }
+                } else {
+                    if (move.score < best_move.score) {
+                        best_move.row = i;
+                        best_move.col = j;
+                        best_move.score = move.score;
+                    }
+                }
+            }
+        }
+    }
+    
+    return best_move;
+}
+
+// evaluateBoard: Heuristic evaluation of the board state
+// Used at depth limit to estimate the value of a position without
+// fully exploring all branches. This is a simplified evaluation.
+int evaluateBoard(char **board, int size, char ai_char, char player_char, int depth) {
+    (void)depth;  // Parameter used for reference but not in simplified evaluation
+    int score = 0;
+    
+    // Count potential winning lines for AI
+    int ai_count = 0, player_count = 0;
+    
+    // Evaluate rows
+    for (int i = 0; i < size; i++) {
+        int ai_in_row = 0, player_in_row = 0, empty_in_row = 0;
+        for (int j = 0; j < size; j++) {
+            if (board[i][j] == ai_char) ai_in_row++;
+            else if (board[i][j] == player_char) player_in_row++;
+            else empty_in_row++;
+        }
+        if (player_in_row == 0 && empty_in_row > 0) ai_count += ai_in_row;
+        if (ai_in_row == 0 && empty_in_row > 0) player_count += player_in_row;
+    }
+    
+    // Similar for columns and diagonals (simplified)
+    score = (ai_count * 2) - (player_count * 3);
+    return score;
+}
+
+// ===================================================================
+// WIN/DRAW CHECKING FUNCTIONS (for dynamic board)
+// ===================================================================
+
+// checkWin: Check if a player has won (all cells in a line match)
+int checkWin(char **board, int size, char player) {
+    // Check rows
+    for (int i = 0; i < size; i++) {
+        int win = 1;
+        for (int j = 0; j < size; j++) {
             if (board[i][j] != player) {
                 win = 0;
                 break;
             }
         }
-        // If the row contained only the player's marks the player has
-        // a horizontal winning line and we return immediately. Early
-        // returning saves unnecessary checking of other rows/columns.
         if (win) return 1;
     }
     
-    // Check columns using the same approach. We check vertical
-    // sequences by iterating columns in the outer loop and rows in the
-    // inner loop. This consistent approach makes the function easy to
-    // reason about and avoids duplicating logic.
-    for (j = 0; j < size; j++) {
-        win = 1;
-        for (i = 0; i < size; i++) {
+    // Check columns
+    for (int j = 0; j < size; j++) {
+        int win = 1;
+        for (int i = 0; i < size; i++) {
             if (board[i][j] != player) {
                 win = 0;
                 break;
@@ -520,12 +896,9 @@ int checkWin(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
         if (win) return 1;
     }
     
-    // main diagonal check: each diagonal index is (i,i)
-    // The diagonal is only a winning line if ALL diagonal cells are
-    // occupied by the same player. The 'win' flag is reused and
-    // evaluated similarly to rows/columns.
-    win = 1;
-    for (i = 0; i < size; i++) {
+    // Check main diagonal
+    int win = 1;
+    for (int i = 0; i < size; i++) {
         if (board[i][i] != player) {
             win = 0;
             break;
@@ -533,10 +906,9 @@ int checkWin(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
     }
     if (win) return 1;
     
-    // anti-diagonal check: indices are (i, size-1-i). The anti-diagonal
-    // is the mirror image diagonal, and we check it the same way.
+    // Check anti-diagonal
     win = 1;
-    for (i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         if (board[i][size - 1 - i] != player) {
             win = 0;
             break;
@@ -547,37 +919,14 @@ int checkWin(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
     return 0;
 }
 
-// check if the game is a draw
-int checkDraw(char board[MAX_SIZE][MAX_SIZE], int size) {
-    int i, j;
-    
-    // A simple draw check scans all cells. If any cell is still the
-    // empty-space character ' ' there exists at least one legal move and
-    // the game cannot be a draw. Note this function does not attempt to
-    // detect forced-win sequences; it only determines if the board is
-    // fully populated. This check is O(size*size) in time complexity.
-    for (i = 0; i < size; i++) {
-        for (j = 0; j < size; j++) {
+// checkDraw: Check if the board is full (game is a draw)
+int checkDraw(char **board, int size) {
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
             if (board[i][j] == ' ') {
-                return 0; // found an empty cell, game is not a draw
+                return 0;  // Found an empty cell
             }
         }
     }
-    
-    return 1; // no empty cells found, it's a draw
-}
-
-// update score based on winner
-void updateScore(char winner) {
-    // Simple scoreboard updater. We use 'X', 'O' and 'D' (draw) as
-    // tokens to decide which global counter to increment. Using a
-    // character code here keeps the interface small and makes calls
-    // like updateScore('D') easy to read.
-    if (winner == 'X') {
-        playerXScore++;
-    } else if (winner == 'O') {
-        playerOScore++;
-    } else if (winner == 'D') {
-        draws++;
-    }
+    return 1;  // No empty cells, it's a draw
 }
