@@ -5,10 +5,9 @@
 // college of engineering, university of guelph
 // november 12, 2025
 //
-// description: this program implements a basic tic-tac-toe game with two-player and
-// player-vs-ai (random) modes. week 1 focuses on core functionality including board
-// display, input validation, win/draw detection, and score tracking. ai strategy
-// (winning and blocking moves) will be enhanced in week 2.
+// description: this program implements a basic tic-tac-toe game with two-player and player-vs-ai (random) modes
+// week 1 focuses on core functionality including board display, input validation, win/draw detection, and score tracking
+// ai strategy (winning and blocking moves) will be enhanced in week 2
 
 // include necessary headers
 #include <stdio.h>  // for input/output operations (printf, scanf)
@@ -35,12 +34,11 @@ void updateScore(char winner);
 
 // ==================== main function ====================
 // purpose: serves as the entry point and main control flow of the program
-// responsibilities:
-//   - initialize game board and variables
-//   - control the main game loop
-//   - handle player input for game setup
-//   - coordinate between player moves, ai moves, and win/draw detection
-//   - manage score tracking and rematch functionality
+// responsibility: initialize game board and variables
+// responsibility: control the main game loop
+// responsibility: handle player input for game setup
+// responsibility: coordinate between player moves, ai moves, and win/draw detection
+// responsibility: manage score tracking and rematch functionality
 int main() {
     // local variables declaration for game state management
     char board[MAX_SIZE][MAX_SIZE]; // 2d array representing the game board
@@ -184,9 +182,8 @@ int main() {
 
 // function: initializeBoard
 // purpose: set up a fresh game board with all empty cells
-// parameters:
-//   - board: 2d array to be initialized (passed by reference)
-//   - size: dimension of the board (size x size grid)
+// parameter: board - 2d array to be initialized (passed by reference)
+// parameter: size - dimension of the board (size x size grid)
 // return: void (modifies board in place)
 // notes: must be called at the start of each new game
 void initializeBoard(char board[MAX_SIZE][MAX_SIZE], int size) {
@@ -203,9 +200,8 @@ void initializeBoard(char board[MAX_SIZE][MAX_SIZE], int size) {
 
 // function: printBoard
 // purpose: display the current state of the game board to the console
-// parameters:
-//   - board: 2d array containing current board state (passed by reference)
-//   - size: dimension of the board to determine grid size for display
+// parameter: board - 2d array containing current board state (passed by reference)
+// parameter: size - dimension of the board to determine grid size for display
 // return: void (output only)
 // notes: displays with grid lines and coordinates for easy user reference
 void printBoard(char board[MAX_SIZE][MAX_SIZE], int size) {
@@ -249,10 +245,9 @@ void printBoard(char board[MAX_SIZE][MAX_SIZE], int size) {
 
 // function: playerMove
 // purpose: get move input from human player with input validation
-// parameters:
-//   - board: 2d array to place move on (passed by reference)
-//   - size: board dimension for boundary checking
-//   - player: 'x' or 'o' to place on board
+// parameter: board - 2d array to place move on (passed by reference)
+// parameter: size - board dimension for boundary checking
+// parameter: player - 'x' or 'o' to place on board
 // return: void (modifies board in place)
 // notes: validates row/column bounds and cell availability before accepting move
 void playerMove(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
@@ -287,13 +282,12 @@ void playerMove(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
 
 // function: aiMove
 // purpose: generate ai move for week 1 (random placement only)
-// parameters:
-//   - board: 2d array to place ai move on (passed by reference)
-//   - size: board dimension for random coordinate generation
-//   - aiPlayer: 'x' or 'o' (typically 'o' as ai opponent to player x)
+// parameter: board - 2d array to place ai move on (passed by reference)
+// parameter: size - board dimension for random coordinate generation
+// parameter: aiPlayer - 'x' or 'o' (typically 'o' as ai opponent to player x)
 // return: void (modifies board in place)
 // notes: week 1 implementation uses simple random move selection
-//        week 2 will add strategic logic for winning and blocking moves
+// notes: week 2 will add strategic logic for winning and blocking moves
 void aiMove(char board[MAX_SIZE][MAX_SIZE], int size, char aiPlayer) {
     int row, col;
     
@@ -315,13 +309,12 @@ void aiMove(char board[MAX_SIZE][MAX_SIZE], int size, char aiPlayer) {
 
 // function: checkWin
 // purpose: determine if a player has achieved winning condition
-// parameters:
-//   - board: 2d array representing current board state (passed by reference)
-//   - size: board dimension for checking all winning patterns
-//   - player: character ('x' or 'o') of player to check win for
+// parameter: board - 2d array representing current board state (passed by reference)
+// parameter: size - board dimension for checking all winning patterns
+// parameter: player - character ('x' or 'o') of player to check win for
 // return: int (1 if win detected, 0 if no win)
 // notes: checks all possible winning combinations (rows, cols, diagonals)
-//        must be called after each move to determine game status
+// notes: must be called after each move to determine game status
 int checkWin(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
     int i, j;
     int win; // flag for checking a particular line
@@ -386,12 +379,11 @@ int checkWin(char board[MAX_SIZE][MAX_SIZE], int size, char player) {
 
 // function: checkDraw
 // purpose: determine if the game board is completely filled without a winner
-// parameters:
-//   - board: 2d array representing current board state (passed by reference)
-//   - size: board dimension for checking all cells
+// parameter: board - 2d array representing current board state (passed by reference)
+// parameter: size - board dimension for checking all cells
 // return: int (1 if draw condition detected, 0 if empty cells remain)
 // notes: called after win check fails to determine game outcome
-//        draw = no empty spaces remain AND no player has won
+// notes: draw = no empty spaces remain AND no player has won
 int checkDraw(char board[MAX_SIZE][MAX_SIZE], int size) {
     int i, j;
     
@@ -411,11 +403,10 @@ int checkDraw(char board[MAX_SIZE][MAX_SIZE], int size) {
 
 // function: updateScore
 // purpose: increment the score counter for the winning player or draws
-// parameters:
-//   - winner: 'x' (player x won), 'o' (player o won), or 'd' (draw)
+// parameter: winner - 'x' (player x won), 'o' (player o won), or 'd' (draw)
 // return: void (modifies global score variables)
 // notes: global variables (playerXScore, playerOScore, draws) are modified
-//        scores persist across multiple game rounds within a session
+// notes: scores persist across multiple game rounds within a session
 void updateScore(char winner) {
     // check if player x won this round
     if (winner == 'X') {
