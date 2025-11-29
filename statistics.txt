@@ -1,6 +1,6 @@
 === GAME STATISTICS ===
-Games Played: 2
+Games Played: 1
 Player X Wins: 0
-Player O Wins: 0
-Draws: 2
-Win Patterns: 2
+Player O Wins: 1
+Draws: 0
+Win Patterns: 1

@@ -1,5 +1,7 @@
-3
-XOX
-OXX
-OXO
-2 0 0 2
+5
+XOOOO
+OXOXO
+OXXXO
+XXXXO
+   XO
+1 0 1 0
